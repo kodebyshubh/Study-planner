@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyFlow - Smart Study Planner</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #7C8B96;
+            --accent-color: #50E3C2;
+            --light-bg: #F8F9FA;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--light-bg);
+        }
+
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        .nav-sidebar {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            height: calc(100vh - 100px);
+            position: sticky;
+            top: 20px;
+        }
+
+        .main-content {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+        }
+
+        .pomodoro-timer {
+            background: linear-gradient(135deg, var(--primary-color), #3B7ABD);
+            color: white;
+            border-radius: 15px;
+            padding: 25px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .task-modal-header {
+            background: var(--primary-color);
+            color: white;
+            border-radius: 15px 15px 0 0;
+        }
+
+        .priority-badge {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .priority-badge.active {
+            transform: scale(1.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .fc .fc-button-primary {
+            background-color: var(--primary-color) !important;
+            border-color: var(--primary-color) !important;
+        }
+
+        .task-item:hover {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <!-- Add Task Modal -->
+    <div class="modal fade" id="addTaskModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header task-modal-header">
+                    <h5 class="modal-title">➕ Add New Task</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="taskForm" class="task-form">
+                        <div class="mb-3">
+                            <label class="form-label">Task Name</label>
+                            <input type="text" class="form-control" id="taskTitle" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Due Date & Time</label>
+                            <input type="datetime-local" class="form-control" id="taskDueDate" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Priority</label>
+                            <div class="d-flex gap-2">
+                                <span class="badge bg-danger priority-badge" data-priority="high">High</span>
+                                <span class="badge bg-warning priority-badge active" data-priority="medium">Medium</span>
+                                <span class="badge bg-success priority-badge" data-priority="low">Low</span>
+                            </div>
+                            <input type="hidden" id="taskPriority" value="medium">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-control" id="taskDescription" rows="3"></textarea>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" form="taskForm">Add Task</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <div class="row g-4">
+            <!-- Sidebar Navigation -->
+            <div class="col-lg-3">
+                <div class="nav-sidebar">
+                    <h3 class="mb-4"><i class="fas fa-book-open me-2"></i>StudyFlow</h3>
+                    <div class="list-group">
+                        <a href="#dashboard" class="list-group-item list-group-item-action active" data-section="dashboard">
+                            <i class="fas fa-home me-2"></i>Dashboard
+                        </a>
+                        <a href="#progress" class="list-group-item list-group-item-action" data-section="progress">
+                            <i class="fas fa-chart-line me-2"></i>Progress
+                        </a>
+                        <a href="#calendar" class="list-group-item list-group-item-action" data-section="calendar">
+                            <i class="fas fa-calendar-alt me-2"></i>Calendar
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-lg-9">
+                <div class="main-content">
+                    <!-- Header -->
+                    <div class="mb-4">
+                        <h2 class="mb-0">Study Dashboard</h2>
+                    </div>
+
+                    <!-- Dashboard Content -->
+                    <div class="section-content" id="dashboard">
+                        <!-- Pomodoro Timer -->
+                        <div class="pomodoro-timer mb-4">
+                            <div class="text-center">
+                                <h3 class="mb-3">Focus Session</h3>
+                                <div class="timer-display mb-3 fs-1">25:00</div>
+                                <div class="d-flex justify-content-center gap-3">
+                                    <button class="btn btn-light btn-lg rounded-pill px-4" id="startTimer">
+                                        <i class="fas fa-play me-2"></i>Start
+                                    </button>
+                                    <button class="btn btn-light btn-lg rounded-pill px-4" id="resetTimer">
+                                        <i class="fas fa-redo me-2"></i>Reset
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Task List -->
+                        <div class="card task-card shadow-sm mb-4">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h5 class="card-title mb-0"><i class="fas fa-list-ul me-2"></i>Today's Tasks</h5>
+                                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addTaskModal">
+                                        <i class="fas fa-plus me-2"></i>Add Task
+                                    </button>
+                                </div>
+                                <div class="list-group" id="taskList">
+                                    <!-- Tasks will be added here dynamically -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Progress Section -->
+                    <div class="section-content d-none" id="progress">
+                        <div class="card task-card shadow-sm h-100">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-chart-pie me-2"></i>Progress</h5>
+                                <canvas id="progressChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calendar Section -->
+                    <div class="section-content d-none" id="calendar">
+                        <div class="card task-card shadow-sm h-100">
+                            <div class="card-body">
+                                <h5 class="card-title"><i class="fas fa-calendar-alt me-2"></i>Schedule</h5>
+                                <div id="calendarView"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Timer Logic
+        let timer;
+        let timeLeft = 25 * 60;
+        const timerDisplay = document.querySelector('.timer-display');
+        const startButton = document.getElementById('startTimer');
+        const resetButton = document.getElementById('resetTimer');
+
+        function updateDisplay(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+        }
+
+        function startTimer() {
+            if (!timer) {
+                startButton.innerHTML = '<i class="fas fa-pause me-2"></i>Pause';
+                timer = setInterval(() => {
+                    timeLeft--;
+                    updateDisplay(timeLeft);
+                    if (timeLeft <= 0) {
+                        clearInterval(timer);
+                        timer = null;
+                        new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+                    }
+                }, 1000);
+            } else {
+                clearInterval(timer);
+                timer = null;
+                startButton.innerHTML = '<i class="fas fa-play me-2"></i>Resume';
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timer);
+            timer = null;
+            timeLeft = 25 * 60;
+            updateDisplay(timeLeft);
+            startButton.innerHTML = '<i class="fas fa-play me-2"></i>Start';
+        }
+
+        startButton.addEventListener('click', startTimer);
+        resetButton.addEventListener('click', resetTimer);
+
+        // Task Management
+        let currentPriority = 'medium';
+        
+        document.querySelectorAll('.priority-badge').forEach(badge => {
+            badge.addEventListener('click', () => {
+                document.querySelectorAll('.priority-badge').forEach(b => b.classList.remove('active'));
+                badge.classList.add('active');
+                currentPriority = badge.dataset.priority;
+                document.getElementById('taskPriority').value = currentPriority;
+            });
+        });
+
+        document.getElementById('taskForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const title = document.getElementById('taskTitle').value.trim();
+            const dueDate = document.getElementById('taskDueDate').value;
+            const description = document.getElementById('taskDescription').value.trim();
+
+            if (!title) {
+                alert('Please enter a task name!');
+                return;
+            }
+
+            const taskItem = document.createElement('div');
+            taskItem.className = 'list-group-item task-item d-flex align-items-center';
+            taskItem.innerHTML = `
+                <input class="form-check-input me-3" type="checkbox">
+                <div class="flex-grow-1">
+                    <h6 class="mb-0">${title}</h6>
+                    ${description ? `<p class="mb-0 text-muted small">${description}</p>` : ''}
+                    <small class="text-muted">Due: ${new Date(dueDate).toLocaleString()}</small>
+                </div>
+                <span class="badge ${getPriorityBadgeClass(currentPriority)}">${currentPriority}</span>
+            `;
+
+            document.getElementById('taskList').appendChild(taskItem);
+            bootstrap.Modal.getInstance(document.getElementById('addTaskModal')).hide();
+            document.getElementById('taskForm').reset();
+            document.querySelectorAll('.priority-badge').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-priority="medium"]`).classList.add('active');
+            currentPriority = 'medium';
+        });
+
+        function getPriorityBadgeClass(priority) {
+            return {
+                high: 'bg-danger',
+                medium: 'bg-warning',
+                low: 'bg-success'
+            }[priority];
+        }
+
+        // Calendar Initialization
+        const calendarEl = document.getElementById('calendarView');
+        const calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+                left: 'prev,next today',
+                center: 'title',
+                right: 'dayGridMonth,timeGridWeek,timeGridDay listWeek'
+            },
+            views: {
+                timeGridWeek: { buttonText: 'Week' },
+                dayGridMonth: { buttonText: 'Month' },
+                listWeek: { buttonText: 'List' }
+            },
+            eventDidMount: function(info) {
+                info.el.style.borderRadius = '8px';
+                info.el.style.padding = '5px';
+                info.el.style.fontWeight = '500';
+            },
+            events: [],
+            eventColor: 'var(--accent-color)',
+            nowIndicator: true,
+            navLinks: true,
+            editable: true,
+            dayMaxEvents: true
+        });
+        calendar.render();
+
+        // Sidebar Navigation
+        function showSection(sectionId) {
+            document.querySelectorAll('.section-content').forEach(div => {
+                div.classList.add('d-none');
+            });
+            document.getElementById(sectionId).classList.remove('d-none');
+            
+            if(sectionId === 'calendar') {
+                calendar.updateSize();
+            }
+        }
+
+        document.querySelectorAll('.list-group-item-action[data-section]').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const sectionId = link.dataset.section;
+                document.querySelectorAll('.list-group-item-action').forEach(l => l.classList.remove('active'));
+                link.classList.add('active');
+                showSection(sectionId);
+            });
+        });
+
+        // Initialize default view
+        showSection('dashboard');
+
+        // Progress Chart
+        const ctx = document.getElementById('progressChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Completed', 'In Progress', 'Pending'],
+                datasets: [{
+                    data: [7, 3, 2],
+                    backgroundColor: ['#50E3C2', '#4A90E2', '#E0E0E0'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
